@@ -7,7 +7,7 @@ Copyright 2024 University of Washington Clinical Informatics Research Group
 
 from dotenv import dotenv_values
 from os.path import exists
-import datetime, os, pathlib, re, requests, signal, simplejson as json, subprocess, time
+import datetime, os, pathlib, re, requests, simplejson as json, time
 
 def log_it(message):
     LOG_FILE.write("[" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + "] ")
