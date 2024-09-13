@@ -38,6 +38,8 @@ fhir_query_response = requests.get(fhir_endpoint + '/Patient', headers = fhir_qu
 if debug_level > '8':
     log_it("FHIR patient query URL: " + fhir_query_response.url)
 
+pat_cnt = 0
+
 if fhir_query_response is not None:
     if fhir_query_response.status_code != 200:
         log_it("FHIR patient query failed, status code: " + str(fhir_query_response.status_code))
@@ -51,78 +53,37 @@ if fhir_query_response is not None:
         # iterate over fhir_query_reply["entry"]
         for entry in fhir_query_reply["entry"]
             patient_hapi_id = entry["resource"]["id"]
-            log_it("Patient ID (" + str(pat_data['pat_id']) + ") found in FHIR store, updating...")
+            activeStatusMsg = "the \"active\" attribute was not present; adding it, set to false."
+            if "active" in entry["resource"]:
+                if entry["resource"]["active"] == false:
+                    log_it("Patient ID (" + str(pat_data['pat_id']) + ") matches criteria, but the active attribute was found to be false already. This is not expected, halting this script now.")
+                    errant_state = true
+                    break
+                else:                    
+                    activeStatusMsg = "the \"active\" attribute was set to true; changing it to false.";
+            log_it("Patient ID (" + str(pat_data['pat_id']) + ") matches criteria:" + activeStatusMsg)
             entry["resource"]["active"] = false
+            
             fhir_patient_response = requests.put(fhir_endpoint + "/Patient/" + patient_hapi_id, json = entry["resource"], headers = fhir_patient_headers)
 
-
-        
-        
-        if fhir_query_reply["total"] > 1:
-            log_it("ERROR: Multiple existing patients found with same ID (" + str(pat_data['pat_id']) + "), this should never happen... exiting.")
-        else:
-            if fhir_query_reply["total"] == 1:
-                    if "entry" in fhir_query_reply:                                     # Existing patient found, update
-                        log_it("Patient ID (" + str(pat_data['pat_id']) + ") found in FHIR store, updating...")
-                        patient_request_method = "PUT"
-                        patient_hapi_id = fhir_query_reply["entry"][0]["resource"]["id"]
-    
-                        if debug_level > '8':
-                            log_it("Existing patient resource found, HAPI ID (" + str(patient_hapi_id) + ")")
-                    
-                        # Need to pull any existing identifiers (except 'epic_patient_id' and 'mrn') out of the existing patient resource to add them to the update bundle
-                        addl_identifiers = {}
-                        for identifier in fhir_query_reply["entry"][0]["resource"]["identifier"]:
-                            if identifier["system"] in ["http://www.uwmedicine.org/mrn", "http://www.uwmedicine.org/epic_patient_id"]:
-                                continue
-    
-                            if debug_level > '8':
-                                log_it("Adding existing identifier to updated patient resource bundle: " + identifier["system"] + "|" + identifier["value"])
-                        
-                            updated_pat_map = pat_map + """
-  * identifier
-    * system = '""" + identifier["system"] + """'
-    * value = \"""" + identifier["value"] + """\"
-    """
-
-                # Send patient resource to FHIR server
-                    fhir_patient_response = None
-                    fhir_patient_headers = {'Content-type': 'application/fhir+json;charset=utf-8',
-                                            'Authorization': fhir_auth_token}
-                    if patient_request_method == "POST":
-                        fhir_patient_response = requests.post(fhir_endpoint, json = pat_bundle, headers = fhir_patient_headers)
-                    else:
-                        fume_patient_response_json = fume_patient_response.json()
-                        fume_patient_response_json["id"] = patient_hapi_id
-                        fhir_patient_response = requests.put(fhir_endpoint + "/Patient/" + patient_hapi_id, json = fume_patient_response_json, headers = fhir_patient_headers)
-                    if fhir_patient_response is not None:
-    
-                        if debug_level > '8':
-                            log_it("FHIR patient " + patient_request_method + " URL: " + fhir_patient_response.url)
-                    
-                        fhir_patient_reply = fhir_patient_response.json()
-    
-                        if debug_level > '8':
-                            log_it("FHIR patient " + patient_request_method + " response: " + json.dumps(fhir_patient_reply))
-                    
-                        if "entry" in fhir_patient_reply:
-                            patient_hapi_id = fhir_patient_reply["entry"][0]["response"]["location"].split("/")[1]
-                        if patient_request_method == "POST":
-                            patient_action = "added"
-                        else:
-                            patient_action = "updated"
-                        log_it("Patient ID (" + str(pat_data['pat_id']) + ") resource " + patient_action + ", HAPI ID (" + str(patient_hapi_id) + ")...")
-                        pat_cnt = pat_cnt + 1
-                        
-                    else:
-                        log_it("ERROR: Unable to add patient resource with ID (" + str(pat_data["pat_id"]) + "), skipping...")
-                else:
-                    log_it("ERROR: No data returned from FUME... exiting.")
+            if fhir_patient_response is not None:
+                fhir_patient_reply = fhir_patient_response.json()
+                if fhir_query_response.status_code != 201:
+                    log_it("ERROR: Unable to update/PUT Patient id " + patient_hapi_id + " at " + fhir_patient_response.url + ", skipping. Response code was " + fhir_query_response.status_code + "(!= 201) and json was: " + json.dumps(fhir_patient_reply))
+                else: 
+                    if debug_level > '8':
+                        log_it("FHIR patient PUT URL: " + fhir_patient_response.url)
+                    pat_cnt = pat_cnt + 1
+                    if debug_level > '8':
+                        log_it("FHIR patient PUT response: " + json.dumps(fhir_patient_reply))
+                    log_it("Successfully updated Patient " + patient_hapi_id)
+            else:
+                log_it("ERROR: Unable to update/PUT Patient id " + patient_hapi_id + "at " + fhir_patient_response.url + " (no response), skipping.")
     else:
         log_it("ERROR: Unable to query FHIR store for patients... exiting.")
 
 log_it("Total patients added/updated: " + str(pat_cnt))
 
-log_it("=========================== FINISH DAILY RUN =============================")
+log_it("=========================== FINISH RUN ================================")
 
 LOG_FILE.close()
