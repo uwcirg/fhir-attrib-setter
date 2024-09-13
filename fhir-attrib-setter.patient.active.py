@@ -13,8 +13,6 @@ def log_it(message):
     LOG_FILE.write("[" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + "] ")
     LOG_FILE.write(message + "\n")
 
-now = datetime.datetime.now()
-
 config = dotenv_values("config.env")
 
 LOG_FILE = open(config['LOG_FILE_PATH'], "a", encoding="utf-8")
@@ -28,29 +26,42 @@ log_it("=========================== STARTING DAILY RUN =========================
 # Set debug level, anything less than 9 is "info/warning", 9 or greater is "debug"
 debug_level = config['DEBUG_LEVEL']
 
-    # Check if patient already exists in FHIR store, update if found, insert if not
-    fhir_query_response = None
-    fhir_query_headers = {'Authorization': fhir_auth_token}
-    fhir_query_params = {'identifier': 'uwDAL_Clarity|' + str(pat_data['pat_id']) + ',http://www.uwmedicine.org/epic_patient_id|' + str(pat_data['pat_id'])}
-    fhir_query_response = requests.get(fhir_endpoint + '/Patient', headers = fhir_query_headers, params = fhir_query_params)
+fhir_query_response = None
+fhir_query_headers = {'Authorization': fhir_auth_token}
+# Find all Patient resources that have an identifier with this system, 
+# and (have active=true, or the active property not present).
+# Count of 5000 should be fine for the current use case but we may want to support pagination instead.
+fhir_query_params = {'identifier': 'http://www.uwmedicine.org/epic_patient_id|', 'active': ':not=false', '_count': '5000'}
+#fhir_query_params = {'identifier': 'uwDAL_Clarity|' + str(pat_data['pat_id']) + ',http://www.uwmedicine.org/epic_patient_id|' + str(pat_data['pat_id'])}
+fhir_query_response = requests.get(fhir_endpoint + '/Patient', headers = fhir_query_headers, params = fhir_query_params)
 
-    if debug_level > '8':
-        log_it("FHIR patient query URL: " + fhir_query_response.url)
+if debug_level > '8':
+    log_it("FHIR patient query URL: " + fhir_query_response.url)
 
-    if fhir_query_response is not None:
-        if fhir_query_response.status_code != 200:
-            log_it("FHIR patient query failed, status code: " + str(fhir_query_response.status_code))
-            break
-        else:
-            fhir_query_reply = fhir_query_response.json()
-    
-            if debug_level > '8':
-                log_it("FHIR patient query response: " + json.dumps(fhir_query_reply))
+if fhir_query_response is not None:
+    if fhir_query_response.status_code != 200:
+        log_it("FHIR patient query failed, status code: " + str(fhir_query_response.status_code))
+        break
+    else:
+        fhir_query_reply = fhir_query_response.json()
+
+        if debug_level > '8':
+            log_it("FHIR patient query response: " + json.dumps(fhir_query_reply))
+
+        # iterate over fhir_query_reply["entry"]
+        for entry in fhir_query_reply["entry"]
+            patient_hapi_id = entry["resource"]["id"]
+            log_it("Patient ID (" + str(pat_data['pat_id']) + ") found in FHIR store, updating...")
+            entry["resource"]["active"] = false
+            fhir_patient_response = requests.put(fhir_endpoint + "/Patient/" + patient_hapi_id, json = entry["resource"], headers = fhir_patient_headers)
+
+
         
-            if fhir_query_reply["total"] > 1:
-                log_it("ERROR: Multiple existing patients found with same ID (" + str(pat_data['pat_id']) + "), this should never happen... exiting.")
-            else:
-                if fhir_query_reply["total"] == 1:
+        
+        if fhir_query_reply["total"] > 1:
+            log_it("ERROR: Multiple existing patients found with same ID (" + str(pat_data['pat_id']) + "), this should never happen... exiting.")
+        else:
+            if fhir_query_reply["total"] == 1:
                     if "entry" in fhir_query_reply:                                     # Existing patient found, update
                         log_it("Patient ID (" + str(pat_data['pat_id']) + ") found in FHIR store, updating...")
                         patient_request_method = "PUT"
@@ -73,12 +84,8 @@ debug_level = config['DEBUG_LEVEL']
     * system = '""" + identifier["system"] + """'
     * value = \"""" + identifier["value"] + """\"
     """
-                else:                                                                   # Patient not fouund, insert as new
-                    log_it("Patient ID (" + str(pat_data['pat_id']) + ") not found in FHIR store, adding...")
-                    patient_request_method = "POST"           
-                    patient_hapi_id = None
-                
-                    # Send patient resource to FHIR server
+
+                # Send patient resource to FHIR server
                     fhir_patient_response = None
                     fhir_patient_headers = {'Content-type': 'application/fhir+json;charset=utf-8',
                                             'Authorization': fhir_auth_token}
@@ -107,21 +114,6 @@ debug_level = config['DEBUG_LEVEL']
                         log_it("Patient ID (" + str(pat_data['pat_id']) + ") resource " + patient_action + ", HAPI ID (" + str(patient_hapi_id) + ")...")
                         pat_cnt = pat_cnt + 1
                         
-                                    # Delete any existing FHIR procedure resources not found in the current list of patient procedures from the DAWG
-                                    for proc_id in list(set(existing_fhir_proc_ids.keys()).difference(dawg_proc_ids)):
-                                        fhir_proc_del_response = None
-                                        fhir_proc_del_response = requests.delete(fhir_endpoint + "/Procedure/" + existing_fhir_proc_ids[proc_id])
-    
-                                        if debug_level > '8':
-                                            log_it("FHIR procedure DELETE URL: " + fhir_proc_del_response.url)
-                                    
-                                        if fhir_proc_del_response is not None:
-    
-                                            if debug_level > '8':
-                                                log_it("FHIR procedure DELETE response: " + json.dumps(fhir_proc_del_response.json()))
-    
-                                            log_it("Procedure ID (" + str(proc_id) + ") resource deleted, HAPI ID (" + str(existing_fhir_proc_ids[proc_id]) + ")...")
-                                            proc_del_cnt = proc_del_cnt + 1
                     else:
                         log_it("ERROR: Unable to add patient resource with ID (" + str(pat_data["pat_id"]) + "), skipping...")
                 else:
@@ -130,7 +122,6 @@ debug_level = config['DEBUG_LEVEL']
         log_it("ERROR: Unable to query FHIR store for patients... exiting.")
 
 log_it("Total patients added/updated: " + str(pat_cnt))
-log_it("Total procedures deleted: " + str(proc_del_cnt))
 
 log_it("=========================== FINISH DAILY RUN =============================")
 
