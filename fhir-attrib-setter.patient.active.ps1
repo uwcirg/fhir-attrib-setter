@@ -1,0 +1,7 @@
+﻿$Logfile = "O:\Workspaces\mcjustin\fhir-attrib-setter\prod\fhir-attrib-setter.patient.active.log"
+$Timestamp = Get-Date -UFormat "%Y-%m-%d %T"
+Add-content $Logfile -value "[$Timestamp] Running COSRI Patient active setter script..."
+cd "O:\Workspaces\mcjustin\fhir-attrib-setter\prod"
+Invoke-Expression "& python 'O:\Workspaces\mcjustin\fhir-attrib-setter\prod\fhir-attrib-setter.patient.active.py' "
+$Timestamp = Get-Date -UFormat "%Y-%m-%d %T"
+Add-content $Logfile -value "[$Timestamp] Done." 
