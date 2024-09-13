@@ -26,6 +26,9 @@ log_it("=========================== STARTING DAILY RUN =========================
 # Set debug level, anything less than 9 is "info/warning", 9 or greater is "debug"
 debug_level = config['DEBUG_LEVEL']
 
+# Open a session to the FHIR endpoint instead of making individual calls as this speeds things up significantly
+session = requests.Session()
+
 fhir_query_response = None
 fhir_query_headers = {'Authorization': fhir_auth_token}
 # Find all Patient resources that have an identifier with this system, 
@@ -33,7 +36,7 @@ fhir_query_headers = {'Authorization': fhir_auth_token}
 # Count of 5000 should be fine for the current use case but we may want to support pagination instead.
 fhir_query_params = {'identifier': 'http://www.uwmedicine.org/epic_patient_id|', 'active': ':not=false', '_count': '5000'}
 #fhir_query_params = {'identifier': 'uwDAL_Clarity|' + str(pat_data['pat_id']) + ',http://www.uwmedicine.org/epic_patient_id|' + str(pat_data['pat_id'])}
-fhir_query_response = requests.get(fhir_endpoint + '/Patient', headers = fhir_query_headers, params = fhir_query_params)
+fhir_query_response = session.get(fhir_endpoint + '/Patient', headers = fhir_query_headers, params = fhir_query_params)
 
 if debug_level > '8':
     log_it("FHIR patient query URL: " + fhir_query_response.url)
@@ -64,7 +67,7 @@ if fhir_query_response is not None:
             log_it("Patient ID (" + str(pat_data['pat_id']) + ") matches criteria:" + activeStatusMsg)
             entry["resource"]["active"] = false
             
-            fhir_patient_response = requests.put(fhir_endpoint + "/Patient/" + patient_hapi_id, json = entry["resource"], headers = fhir_patient_headers)
+            fhir_patient_response = session.put(fhir_endpoint + "/Patient/" + patient_hapi_id, json = entry["resource"], headers = fhir_patient_headers)
 
             if fhir_patient_response is not None:
                 fhir_patient_reply = fhir_patient_response.json()
