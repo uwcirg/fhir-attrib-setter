@@ -19,7 +19,6 @@ LOG_FILE = open(config['LOG_FILE_PATH'], "a", encoding="utf-8")
 
 fhir_endpoint = config['FHIR_ENDPOINT']
 fhir_auth_token = config['FHIR_AUTH_TOKEN']
-fume_endpoint = config['FUME_ENDPOINT']
 dry_run = config['DRY_RUN']
 
 log_it("=========================== STARTING RUN =============================")
@@ -38,7 +37,8 @@ fhir_query_headers = {'Authorization': fhir_auth_token}
 # Find all Patient resources that have an identifier with this system, 
 # and (have active=true, or the active property not present).
 # Count of 5000 should be fine for the current use case but we may want to support pagination instead.
-fhir_query_params = {'identifier': 'http://www.uwmedicine.org/epic_patient_id|', 'active': ':not=false', '_count': '5000'}
+fhir_query_params = {'identifier:not': 'http://www.uwmedicine.org/epic_patient_id|', 'active:not': 'false', '_count': '5000'}
+#fhir_query_params = {'identifier': 'http://www.uwmedicine.org/epic_patient_id|', 'active': ':not=false', '_count': '5000'}
 #fhir_query_params = {'identifier': 'uwDAL_Clarity|' + str(pat_data['pat_id']) + ',http://www.uwmedicine.org/epic_patient_id|' + str(pat_data['pat_id'])}
 fhir_query_response = session.get(fhir_endpoint + '/Patient', headers = fhir_query_headers, params = fhir_query_params)
 
@@ -61,23 +61,23 @@ if fhir_query_response is not None:
             patient_hapi_id = entry["resource"]["id"]
             activeStatusMsg = "the \"active\" attribute was not present; adding it, set to false."
             if "active" in entry["resource"]:
-                if entry["resource"]["active"] == false:
-                    log_it("Patient ID (" + str(pat_data['pat_id']) + ") matches criteria, but the active attribute was found to be false already. This is not expected, halting this script now.")
-                    errant_state = true
+                if entry["resource"]["active"] == False:
+                    log_it("Patient ID (" + patient_hapi_id + ") matches criteria, but the active attribute was found to be false already. This is not expected, halting this script now.")
+                    errant_state = True
                     break
                 else:                    
                     activeStatusMsg = "the \"active\" attribute was set to true; changing it to false.";
-            log_it("Patient ID (" + str(pat_data['pat_id']) + ") matches criteria:" + activeStatusMsg)
-            entry["resource"]["active"] = false
+            log_it("Patient ID (" + patient_hapi_id + ") matches criteria: " + activeStatusMsg)
+            entry["resource"]["active"] = False
             
             if dry_run < '1':
             
-                fhir_patient_response = session.put(fhir_endpoint + "/Patient/" + patient_hapi_id, json = entry["resource"], headers = fhir_patient_headers)
+                fhir_patient_response = session.put(fhir_endpoint + "/Patient/" + patient_hapi_id, json = entry["resource"], headers = fhir_query_headers)
 
                 if fhir_patient_response is not None:
                     fhir_patient_reply = fhir_patient_response.json()
-                    if fhir_query_response.status_code != 201:
-                        log_it("ERROR: Unable to update/PUT Patient id " + patient_hapi_id + " at " + fhir_patient_response.url + ", skipping. Response code was " + fhir_query_response.status_code + "(!= 201) and json was: " + json.dumps(fhir_patient_reply))
+                    if fhir_query_response.status_code != 200:
+                        log_it("ERROR: Unable to update/PUT Patient id " + patient_hapi_id + " at " + fhir_patient_response.url + ", skipping. Response code was " + str(fhir_query_response.status_code) + "(!= 200) and json was: " + json.dumps(fhir_patient_reply))
                     else: 
                         if debug_level > '8':
                             log_it("FHIR patient PUT URL: " + fhir_patient_response.url)
