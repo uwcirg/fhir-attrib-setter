@@ -21,7 +21,7 @@ fhir_endpoint = config['FHIR_ENDPOINT']
 fhir_auth_token = config['FHIR_AUTH_TOKEN']
 fume_endpoint = config['FUME_ENDPOINT']
 
-log_it("=========================== STARTING DAILY RUN =============================")
+log_it("=========================== STARTING RUN =============================")
 
 # Set debug level, anything less than 9 is "info/warning", 9 or greater is "debug"
 debug_level = config['DEBUG_LEVEL']
