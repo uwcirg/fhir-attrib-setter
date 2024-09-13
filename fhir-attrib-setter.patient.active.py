@@ -50,7 +50,6 @@ pat_cnt = 0
 if fhir_query_response is not None:
     if fhir_query_response.status_code != 200:
         log_it("FHIR patient query failed, status code: " + str(fhir_query_response.status_code))
-        break
     else:
         fhir_query_reply = fhir_query_response.json()
 
