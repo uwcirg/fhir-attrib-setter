@@ -58,7 +58,7 @@ if fhir_query_response is not None:
             log_it("FHIR patient query response: " + json.dumps(fhir_query_reply))
 
         # iterate over fhir_query_reply["entry"]
-        for entry in fhir_query_reply["entry"]
+        for entry in fhir_query_reply["entry"]:
             patient_hapi_id = entry["resource"]["id"]
             activeStatusMsg = "the \"active\" attribute was not present; adding it, set to false."
             if "active" in entry["resource"]:
