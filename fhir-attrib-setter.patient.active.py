@@ -37,7 +37,9 @@ fhir_query_headers = {'Authorization': fhir_auth_token}
 # Find all Patient resources that have an identifier with this system, 
 # and (have active=true, or the active property not present).
 # Count of 5000 should be fine for the current use case but we may want to support pagination instead.
-fhir_query_params = {'identifier:not': 'http://www.uwmedicine.org/epic_patient_id|', 'active:not': 'false', '_count': '5000'}
+#fhir_query_params = {'identifier:not': 'http://www.uwmedicine.org/epic_patient_id|', 'active:not': 'false', '_count': '5000'}
+# prod has ~20,689 of these
+fhir_query_params = {'identifier:not': 'http://www.uwmedicine.org/epic_patient_id|', 'active:not': 'false', '_count': '25000'}
 #fhir_query_params = {'identifier': 'http://www.uwmedicine.org/epic_patient_id|', 'active': ':not=false', '_count': '5000'}
 #fhir_query_params = {'identifier': 'uwDAL_Clarity|' + str(pat_data['pat_id']) + ',http://www.uwmedicine.org/epic_patient_id|' + str(pat_data['pat_id'])}
 fhir_query_response = session.get(fhir_endpoint + '/Patient', headers = fhir_query_headers, params = fhir_query_params)
@@ -87,8 +89,8 @@ if fhir_query_response is not None:
                         log_it("Successfully updated Patient " + patient_hapi_id)
                 else:
                     log_it("ERROR: Unable to update/PUT Patient id " + patient_hapi_id + "at " + fhir_patient_response.url + " (no response), skipping.")
-        else:
-            log_it("ERROR: Unable to query FHIR store for patients... exiting.")
+else:
+    log_it("ERROR: Unable to query FHIR store for patients... exiting.")
 
 log_it("Total patients added/updated: " + str(pat_cnt))
 
