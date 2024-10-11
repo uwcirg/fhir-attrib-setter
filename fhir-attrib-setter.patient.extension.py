@@ -7,7 +7,8 @@ Copyright 2024 University of Washington Clinical Informatics Research Group
 
 from dotenv import dotenv_values
 from os.path import exists
-import datetime, os, pathlib, re, requests, simplejson as json, time
+import datetime, os, pathlib, re, requests, simplejson as json, time, dateutil
+from dateutil.relativedelta import relativedelta
 
 def log_it(message):
     LOG_FILE.write("[" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + "] ")
@@ -56,7 +57,7 @@ if debug_level > '8':
 
 pat_cnt = 0
 
-now_plus_20_yrs = add_years(datetime.datetime.now(), 20).strftime("%Y-%m-%d %H:%M:%S")
+now_plus_20_yrs = (datetime.datetime.now() + relativedelta(years=20)).strftime("%Y-%m-%d %H:%M:%S")
 
 if fhir_query_response is not None:
     if fhir_query_response.status_code != 200:
@@ -76,7 +77,7 @@ if fhir_query_response is not None:
             # RESUME HERE
             if "extension" not in entry["resource"]:
                 entry["resource"]["extension"] = []
-            entry["resource"]["extension"][] = ["url": "http://www.uwmedicine.org/time_of_next_appointment", "value": now_plus_20_yrs]
+            entry["resource"]["extension"].append({"url": "http://www.uwmedicine.org/time_of_next_appointment", "value": now_plus_20_yrs})
             
             # add our extension
             
