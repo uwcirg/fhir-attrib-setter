@@ -53,7 +53,7 @@ log_it("FHIR patient query URL: " + fhir_query_response.url)
 
 pat_cnt = 0
 
-now_plus_20_yrs = (datetime.datetime.now() + relativedelta(years=20)).strftime("%Y-%m-%dT%H:%M:%S")
+now_plus_20_yrs = (datetime.datetime.now() + relativedelta(years=20)).strftime("%Y-%m-%dT%H:%M:%S-07:00")
 extension_url = "http://www.uwmedicine.org/time_of_next_appointment"
 
 if fhir_query_response is not None:
