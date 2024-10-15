@@ -8,7 +8,7 @@ This is a migration per https://www.pivotaltracker.com/story/show/188376912
 This should be run the day before Jim's updated dawg-to-fhir code runs, namely
 when it's able to set this to the actual appt dt for the appts that it finds.
 Set a new extension w/ "url": "http://www.uwmedicine.org/time_of_next_appointment",
-and w/ "valueDateTime": [now + 20 years] (date format e.g. 2024-10-07T09:00:00)
+and w/ "valueDateTime": [now + 20 years] (date format e.g. 2024-10-07T09:12:34-07:00)
 on all patients who have active=true.
 If this extension already exists for the Patient, it is not touched.
 Count of 5000 should be fine for the current use case but we may want to support pagination instead.
